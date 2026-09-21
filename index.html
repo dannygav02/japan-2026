@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#132f47" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Japan 2026" />
+  <meta name="description" content="Daniel and Matthew’s Japan 2026 trip map and itinerary." />
+  <title>Japan 2026 · Daniel &amp; Matthew</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Shippori+Mincho:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sea: #1a3f5c;
+      --sea-deep: #132f47;
+      --land: #2a5648;
+      --land-quiet: #234a3e;
+      --land-line: #c5b896;
+      --gold: #c9a44a;
+      --gold-bright: #e2c57a;
+      --vermillion: #c44536;
+      --route: #e0563a;
+      --paper: #f3ead8;
+      --paper-2: #e6d9c0;
+      --ink: #1c1914;
+      --ink-soft: #5e574c;
+      --cream: #f6efe2;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --panel-w: min(400px, 38vw);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Figtree, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--sea-deep);
+      overflow: hidden;
+    }
+
+    .app {
+      position: relative;
+      height: 100dvh;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .map-stage {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(900px 500px at 78% 16%, #24567a 0%, transparent 52%),
+        radial-gradient(800px 520px at 14% 84%, #16384c 0%, transparent 55%),
+        var(--sea);
+      cursor: grab;
+    }
+    .map-stage.is-panning { cursor: grabbing; }
+
+    #map-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .map-dim {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 10, 14, 0.28);
+      z-index: 8;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .cartouche {
+      position: absolute;
+      top: calc(16px + var(--safe-top));
+      left: 16px;
+      z-index: 6;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 14px 18px 12px;
+      border-radius: 16px;
+      box-shadow: 4px 6px 0 rgba(226, 59, 43, 0.22), 0 14px 32px rgba(20, 40, 50, 0.18);
+      max-width: min(280px, calc(100vw - 32px));
+    }
+    .cartouche h1 {
+      font-family: "Shippori Mincho", "Yu Mincho", Georgia, serif;
+      font-weight: 700;
+      font-size: 1.7rem;
+      letter-spacing: 0.01em;
+      margin: 0;
+      line-height: 1.05;
+    }
+    .cartouche .who {
+      margin: 5px 0 0;
+      color: var(--vermillion);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .cartouche .meta {
+      margin: 4px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+    }
+    .sample-badge {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 0.64rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--paper);
+      background: var(--vermillion);
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .sample-badge[hidden] { display: none; }
+
+    .day-hud {
+      position: absolute;
+      z-index: 7;
+      left: 50%;
+      bottom: calc(18px + var(--safe-bottom));
+      transform: translateX(-50%);
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      background: var(--paper);
+      border-radius: 16px;
+      box-shadow: 0 10px 28px rgba(20, 40, 50, 0.2);
+      overflow: hidden;
+      transition: left 0.35s ease, transform 0.35s ease, bottom 0.35s ease;
+    }
+    @media (min-width: 901px) {
+      .app.panel-open .day-hud {
+        left: calc((100% - var(--panel-w) - 16px) / 2);
+      }
+    }
+    .day-hud button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .day-hud .step {
+      width: 48px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .day-hud .step:hover { background: var(--paper-2); }
+    .day-hud .step:disabled { opacity: 0.28; cursor: default; }
+    .day-hud-now {
+      min-width: 148px;
+      padding: 8px 14px;
+      text-align: center;
+      border-left: 1px solid rgba(28, 25, 20, 0.08);
+      border-right: 1px solid rgba(28, 25, 20, 0.08);
+    }
+    .day-hud-now .k {
+      display: block;
+      font-size: 0.64rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .day-hud-now .c {
+      display: block;
+      font-family: "Shippori Mincho", Georgia, serif;
+      font-size: 1.15rem;
+      margin-top: 1px;
+    }
+
+    .map-tools {
+      position: absolute;
+      z-index: 7;
+      left: 16px;
+      bottom: calc(16px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .map-tools button {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid rgba(28, 25, 20, 0.12);
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-size: 1.15rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(20, 40, 50, 0.12);
+    }
+    .map-tools button:hover { background: var(--paper-2); }
+
+    .legend {
+      position: absolute;
+      z-index: 7;
+      left: 68px;
+      bottom: calc(22px + var(--safe-bottom));
+      display: flex;
+      gap: 14px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(220, 228, 232, 0.75);
+      pointer-events: none;
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .legend i {
+      display: block;
+      width: 22px;
+      height: 0;
+      border-top: 3px solid var(--route);
+    }
+    .legend .air i {
+      border-top-style: dashed;
+      border-top-color: #d9c9a0;
+      opacity: 0.95;
+    }
+
+    .compass {
+      position: absolute;
+      z-index: 7;
+      left: 18px;
+      bottom: calc(168px + var(--safe-bottom));
+      width: 56px;
+      height: 56px;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .panel {
+      position: absolute;
+      z-index: 12;
+      top: 16px;
+      right: 16px;
+      bottom: 16px;
+      width: var(--panel-w);
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(calc(100% + 40px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.4s ease, opacity 0.35s ease;
+      overflow: hidden;
+    }
+    .panel.is-open {
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sheet-handle {
+      display: none;
+      width: 42px;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(28, 25, 20, 0.22);
+      margin: 8px auto 0;
+    }
+
+    .panel-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--paper-2);
+      color: var(--ink);
+      font-size: 1.2rem;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .panel-body {
+      padding: 22px 22px 16px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    .eyebrow {
+      margin: 0;
+      padding-right: 36px;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+    .panel-city-name {
+      font-family: "Shippori Mincho", Georgia, serif;
+      font-size: 2rem;
+      margin: 6px 0 0;
+      line-height: 1.1;
+    }
+    .panel-city-jp { display: none; }
+    .blurb {
+      margin: 10px 0 0;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .city-days {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 16px 0 18px;
+    }
+    .city-days button {
+      appearance: none;
+      border: 1px solid rgba(28, 25, 20, 0.14);
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .city-days button.is-active {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    .day-kicker {
+      margin: 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .day-title {
+      font-family: "Shippori Mincho", Georgia, serif;
+      font-size: 1.25rem;
+      margin: 4px 0 14px;
+    }
+
+    .stops {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .stops li {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 10px;
+      padding: 11px 0;
+      border-top: 1px solid rgba(28, 25, 20, 0.08);
+    }
+    .stops time {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding-top: 2px;
+    }
+    .stop-type {
+      display: inline-block;
+      font-size: 0.64rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--vermillion);
+      margin-bottom: 2px;
+    }
+    .stops h4 {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 650;
+    }
+    .stops p {
+      margin: 4px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+    .stops a {
+      display: inline-block;
+      margin-top: 6px;
+      color: var(--vermillion);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .panel-nav {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px calc(12px + var(--safe-bottom));
+      border-top: 1px solid rgba(28, 25, 20, 0.1);
+      background: #efe4cd;
+    }
+    .panel-nav button {
+      flex: 1;
+      appearance: none;
+      border: 1px solid rgba(28, 25, 20, 0.16);
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 10px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .panel-nav button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+
+    /* SVG map */
+    .island { stroke: #c5b896; stroke-width: 1.4; stroke-linejoin: round; }
+    .island-main { fill: url(#land-fill); }
+    .island-quiet { fill: url(#land-quiet); }
+    .sea-label {
+      fill: rgba(210, 224, 230, 0.38);
+      font-family: "Shippori Mincho", Georgia, serif;
+      font-size: 13px;
+      letter-spacing: 0.28em;
+    }
+    .region-label {
+      fill: rgba(210, 224, 230, 0.42);
+      font-family: Figtree, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      font-weight: 700;
+    }
+    .route-land {
+      fill: none;
+      stroke: var(--route);
+      stroke-width: 3.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: url(#gold-glow);
+    }
+    .route-air {
+      fill: none;
+      stroke: #d9c9a0;
+      stroke-width: 2.4;
+      stroke-dasharray: 7 8;
+      stroke-linecap: round;
+      opacity: 0.95;
+    }
+    .route-seg { fill: none; stroke: #e2c57a; stroke-width: 3.4; stroke-linecap: round; opacity: 0; }
+    .route-seg.is-on { opacity: 1; }
+    .pin { cursor: pointer; }
+    .pin-hit { fill: transparent; pointer-events: all; }
+    .pin-glow { fill: currentColor; opacity: 0; }
+    .pin.is-selected .pin-glow { opacity: 0.35; }
+    .pin-mark { transform-box: fill-box; transform-origin: center; transition: transform 0.25s ease; }
+    .pin.is-selected .pin-mark { transform: scale(1.32); }
+    .pin-ring { fill: none; stroke: #f6efe2; stroke-width: 2.2; }
+    .pin-core { stroke: #f6efe2; stroke-width: 1.4; }
+    .pin-name {
+      font-family: "Shippori Mincho", Georgia, serif;
+      font-size: 14px;
+      font-weight: 700;
+      fill: #f6efe2;
+      paint-order: stroke;
+      stroke: rgba(16, 28, 32, 0.72);
+      stroke-width: 4px;
+      pointer-events: none;
+    }
+    .pawn {
+      pointer-events: none;
+      filter: drop-shadow(0 1px 1.4px rgba(0,0,0,0.45));
+    }
+    .pawn.is-away { opacity: 0; }
+    #pawn-guy { transform: scale(1.45); transform-origin: 0 8px; }
+    .pawn-bob { animation: bob 1.6s ease-in-out infinite; }
+    .pawn.is-pop .pawn-bob { animation: pop-in 0.42s cubic-bezier(.2,1.2,.3,1); }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+    @keyframes pop-in {
+      0% { transform: translateY(10px) scale(0.2); }
+      72% { transform: translateY(-5px) scale(1.08); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    #vehicle {
+      pointer-events: none;
+      display: none;
+      filter: drop-shadow(0 1px 1.2px rgba(0,0,0,0.4));
+    }
+    #vehicle.is-on { display: block; }
+    #vehicle .craft { display: none; }
+    #vehicle.is-train #vehicle-train { display: block; }
+    #vehicle.is-plane #vehicle-plane { display: block; }
+
+    @media (max-width: 900px) {
+      .cartouche { padding: 12px 14px 10px; }
+      .cartouche h1 { font-size: 1.35rem; }
+      .legend { display: none; }
+      .compass { display: none; }
+      .map-tools {
+        left: auto;
+        right: 12px;
+        bottom: auto;
+        top: calc(16px + var(--safe-top));
+      }
+      .map-dim { display: block; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+      .app.panel-open .map-dim { opacity: 1; pointer-events: auto; }
+
+      .panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: min(72vh, 640px);
+        border-radius: 20px 20px 0 0;
+        transform: translateY(110%);
+        opacity: 1;
+      }
+      .panel.is-open { transform: translateY(0); }
+      .sheet-handle { display: block; }
+      .app.panel-open .day-hud {
+        bottom: calc(min(72vh, 640px) + 10px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="map-stage" id="map-stage">
+      <svg id="map-svg" viewBox="-160 -40 1080 900" role="img" aria-label="Illustrated map of Japan with the trip route">
+        <defs>
+          <linearGradient id="land-fill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#3a6b58" />
+            <stop offset="50%" stop-color="#2a5648" />
+            <stop offset="100%" stop-color="#1e4538" />
+          </linearGradient>
+          <linearGradient id="land-quiet" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#2d5748" />
+            <stop offset="100%" stop-color="#1c3f34" />
+          </linearGradient>
+          <pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.7" fill="#0c241c" opacity="0.18" />
+          </pattern>
+          <filter id="gold-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="1.6" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="land-shadow" x="-5%" y="-5%" width="110%" height="110%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0c2430" flood-opacity="0.45" />
+          </filter>
+        </defs>
+
+        <rect x="-400" y="-300" width="1800" height="1800" fill="#1a3f5c" />
+
+        <!-- Quiet wave ticks in the Pacific -->
+        <g fill="none" stroke="rgba(160,190,210,0.18)" stroke-width="1.4">
+          <path d="M520 620 q30 8 60 0 t60 0" />
+          <path d="M540 640 q30 8 60 0 t60 0" />
+          <path d="M80 360 q28 8 56 0 t56 0" />
+          <path d="M60 380 q28 8 56 0 t56 0" />
+        </g>
+
+        <text class="sea-label" x="90" y="360">SEA OF JAPAN</text>
+        <text class="sea-label" x="520" y="620">PACIFIC</text>
+        <text class="region-label" x="560" y="78">HOKKAIDO</text>
+        <text class="region-label" x="36" y="630">KYUSHU</text>
+
+        <!-- Hokkaido -->
+        <path class="island island-quiet" filter="url(#land-shadow)" d="M509 188
+          L530 155 L548 88 L558 30 L605 52 L668 108 L700 132
+          L652 168 L611 183 L560 192 L520 190 Z" />
+
+        <!-- Honshu: long NE–SW arc with Izu, Kii, and Noto -->
+        <path class="island island-main" filter="url(#land-shadow)" d="M499 233
+          L528 202 L545 250 L555 290 L530 345 L518 400 L512 445
+          L525 455 L498 498 L478 486 L468 475 L465 495 L438 518
+          L415 500 L389 512 L360 518 L348 508 L355 535 L328 545
+          L311 568 L287 532 L285 518 L270 510 L237 512 L178 524
+          L118 542 L136 522 L163 500 L202 474 L250 472 L293 474
+          L323 466 L346 425 L356 387 L370 383 L359 410 L368 420
+          L394 403 L442 364 L474 319 L484 283 L477 241 Z" />
+
+        <!-- Shikoku -->
+        <path class="island island-quiet" d="M264 533 L247 574 L193 598 L182 575 L191 547 L242 525 Z" />
+
+        <!-- Kyushu -->
+        <path class="island island-quiet" d="M115 545 L144 574 L146 604 L137 634 L106 675 L92 663
+          L70 610 L69 578 L79 565 L96 558 Z" />
+
+        <!-- Awaji, Sado, Okinawa (quiet) -->
+        <ellipse class="island-quiet" cx="272" cy="524" rx="8" ry="5.5" />
+        <ellipse class="island-quiet" cx="424" cy="352" rx="11" ry="6" />
+        <g class="island-quiet" opacity="0.7">
+          <ellipse cx="48" cy="790" rx="10" ry="6" />
+          <ellipse cx="68" cy="808" rx="7" ry="4" />
+          <ellipse cx="86" cy="822" rx="6" ry="3.5" />
+        </g>
+
+        <path fill="url(#dots)" opacity="0.5" d="M499 233
+          L528 202 L545 250 L555 290 L530 345 L518 400 L512 445
+          L525 455 L498 498 L478 486 L468 475 L465 495 L438 518
+          L415 500 L389 512 L360 518 L348 508 L355 535 L328 545
+          L311 568 L287 532 L285 518 L270 510 L237 512 L178 524
+          L118 542 L136 522 L163 500 L202 474 L250 472 L293 474
+          L323 466 L346 425 L356 387 L370 383 L359 410 L368 420
+          L394 403 L442 364 L474 319 L484 283 L477 241 Z" />
+
+        <ellipse cx="324" cy="484" rx="9" ry="5.5" fill="#1a4558" opacity="0.95" />
+
+        <g id="route-layer"></g>
+        <g id="pin-layer"></g>
+        <g id="vehicle">
+          <g id="vehicle-train" class="craft" transform="scale(1.15)">
+            <rect x="-13" y="-5" width="24" height="10" rx="5" fill="#efe8dc" stroke="#2a3340" stroke-width="0.7" />
+            <path d="M8 -5 h3 a5 5 0 0 1 0 10 h-3 z" fill="#c44536" />
+            <rect x="-11" y="-2.1" width="16" height="4.2" rx="1" fill="#1c3a52" opacity="0.32" />
+            <circle cx="-6" cy="0" r="1.15" fill="#8ec8d8" />
+            <circle cx="-1.5" cy="0" r="1.15" fill="#8ec8d8" />
+            <circle cx="3" cy="0" r="1.15" fill="#8ec8d8" />
+          </g>
+          <g id="vehicle-plane" class="craft" transform="scale(1.15)">
+            <path d="M-2 0 l-5 8.5 h3.8 l5.2 -8.5 z" fill="#c4b89a" />
+            <path d="M-2 0 l-5 -8.5 h3.8 l5.2 8.5 z" fill="#c4b89a" />
+            <ellipse cx="0" cy="0" rx="13" ry="3.1" fill="#e8e2d6" stroke="#2a3340" stroke-width="0.6" />
+            <path d="M10 0 l4.2 -3.2 v6.4 z" fill="#c44536" />
+            <path d="M-11 -2 v4 h-3.2 v-4 z" fill="#9a8f78" />
+          </g>
+        </g>
+        <g id="pawn" class="pawn" transform="translate(468, 456)">
+          <g class="pawn-bob">
+            <g id="pawn-guy">
+              <ellipse class="guy-shadow" cx="0" cy="10" rx="4.2" ry="1.5" fill="rgba(8,16,20,0.3)" />
+              <rect x="2" y="2.2" width="3" height="4.2" rx="0.7" fill="#c4a035" />
+              <rect x="-3.1" y="1.3" width="6.2" height="7.6" rx="1.5" fill="#2c4f86" />
+              <circle cx="0" cy="-3.1" r="3.4" fill="#f3d0b0" />
+              <path d="M-3.3 -4 q3.3 -4.1 6.6 0" fill="#2a2118" />
+              <circle cx="-1.05" cy="-3" r="0.42" fill="#1c1914" />
+              <circle cx="1.15" cy="-3" r="0.42" fill="#1c1914" />
+              <path d="M-0.85 -1.65 q0.95 1 2 0" fill="none" stroke="#c44536" stroke-width="0.45" stroke-linecap="round" />
+              <rect x="-2.15" y="8.4" width="1.7" height="3" rx="0.5" fill="#243447" />
+              <rect x="0.45" y="8.4" width="1.7" height="3" rx="0.5" fill="#243447" />
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <button class="map-dim" id="map-dim" aria-label="Close itinerary"></button>
+
+    <header class="cartouche">
+      <h1>Japan 2026</h1>
+      <p class="who" id="travelers"></p>
+      <p class="meta" id="trip-meta"></p>
+      <span class="sample-badge" id="sample-badge">Sample itinerary</span>
+    </header>
+
+    <div class="day-hud" id="day-hud">
+      <button type="button" class="step" id="hud-prev" aria-label="Previous day">‹</button>
+      <button type="button" class="day-hud-now" id="hud-now">
+        <span class="k" id="hud-kicker">Day 1 of 11</span>
+        <span class="c" id="hud-city">Tokyo</span>
+      </button>
+      <button type="button" class="step" id="hud-next" aria-label="Next day">›</button>
+    </div>
+
+    <div class="map-tools">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoom-reset" aria-label="Reset map">⌂</button>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i></i> Train route</span>
+      <span class="air"><i></i> Flight home</span>
+    </div>
+    <svg class="compass" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="23" fill="var(--paper)" stroke="rgba(28,25,20,0.18)" stroke-width="1.4" />
+      <path d="M32 12 L36 32 L32 28 L28 32 Z" fill="#e23b2b" />
+      <path d="M32 52 L28 32 L32 36 L36 32 Z" fill="rgba(28,25,20,0.28)" />
+      <text x="32" y="10" text-anchor="middle" fill="#1c1914" font-size="8" font-weight="700" font-family="Figtree,sans-serif">N</text>
+    </svg>
+
+    <aside class="panel" id="panel" aria-label="Day itinerary">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <button class="panel-close" id="panel-close" type="button" aria-label="Close itinerary">×</button>
+      <div class="panel-body" id="panel-body"></div>
+      <div class="panel-nav">
+        <button type="button" id="prev-day">← Previous</button>
+        <button type="button" id="next-day">Next →</button>
+      </div>
+    </aside>
+    <p class="sr-only" id="live" aria-live="polite"></p>
+  </div>
+
+  <script>
+    /* ============================================================
+       TRIP DATA — swap this object for the real itinerary.
+       Keep city `id` values stable (tokyo, hakone, nagoya, kyoto, osaka)
+       so the map pins and route stay aligned.
+       ============================================================ */
+    const TRIP = {
+      title: "Japan 2026",
+      travelers: ["Daniel", "Matthew"],
+      synthetic: false,
+      cities: [
+        {
+          id: "tokyo",
+          name: "Tokyo",
+          jp: "東京",
+          color: "#d4523e",
+          mapX: 468,
+          mapY: 464,
+          label: { x: 16, y: -10 },
+          blurb: "Land, walk, watches, One Piece, and a very late drift in Shibuya."
+        },
+        {
+          id: "hakone",
+          name: "Hakone",
+          jp: "箱根",
+          color: "#4a9b8c",
+          mapX: 444,
+          mapY: 485,
+          label: { x: 12, y: 22 },
+          blurb: "One night: torii at Hakone Shrine, then the onsen at Fujiya Hotel."
+        },
+        {
+          id: "nagoya",
+          name: "Nagoya",
+          jp: "名古屋",
+          color: "#d4a017",
+          mapX: 356,
+          mapY: 487,
+          label: { x: 0, y: -16, anchor: "middle" },
+          blurb: "Osu watches, Toyota, the castle, and a day at Suzuka Circuit."
+        },
+        {
+          id: "kyoto",
+          name: "Kyoto",
+          jp: "京都",
+          color: "#7a5ea7",
+          mapX: 311,
+          mapY: 495,
+          label: { x: -16, y: -12, anchor: "end" },
+          blurb: "Souvenir run for Eric, bamboo at Arashiyama, then Kuoe before close."
+        },
+        {
+          id: "osaka",
+          name: "Osaka",
+          jp: "大阪",
+          color: "#e07a3d",
+          mapX: 300,
+          mapY: 509,
+          label: { x: -16, y: 22, anchor: "end" },
+          blurb: "Nara deer, Super Nintendo World, then an early hop back to Tokyo."
+        }
+      ],
+      days: [
+        {
+          day: 1,
+          date: "2026-09-24",
+          city: "tokyo",
+          title: "Land in Tokyo",
+          items: [
+            { time: "16:00", type: "arrive", title: "Land in Tokyo", note: "" },
+            { time: "16:30", type: "stay", title: "Check into hotel", note: "Location: Mitsui Garden Hotel" },
+            { time: "17:00", type: "sight", title: "Walk around Tokyo", note: "" },
+            { time: "19:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 2,
+          date: "2026-09-25",
+          city: "tokyo",
+          title: "One Piece gym + Propaganda",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "One Piece gym", note: "" },
+            { time: "17:00", type: "food", title: "Dinner", note: "Location: TBD" },
+            { time: "19:00", type: "sight", title: "Bar crawl", note: "Location: Bar Propaganda" }
+          ]
+        },
+        {
+          day: 3,
+          date: "2026-09-26",
+          city: "tokyo",
+          title: "Nakano Broadway, then drift",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Watch shopping", note: "Location: Nakano Broadway" },
+            { time: "19:00", type: "food", title: "Dinner", note: "Location: TBD" },
+            { time: "23:30", type: "sight", title: "Tokyo Drift Experience", note: "Location: Shibuya" }
+          ]
+        },
+        {
+          day: 4,
+          date: "2026-09-27",
+          city: "tokyo",
+          title: "Tokyo Tower",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Tokyo Tower", note: "Need to confirm time." },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 5,
+          date: "2026-09-28",
+          city: "tokyo",
+          title: "Temple and sumo",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Temple visit", note: "Location: TBD. Potentially Gotoku-ji (lucky cat)." },
+            { time: "16:30", type: "transit", title: "Train to sumo wrestling event", note: "About 20 minutes." },
+            { time: "17:30", type: "sight", title: "Sumo wrestling", note: "Location: Shinjuku" }
+          ]
+        },
+        {
+          day: 6,
+          date: "2026-09-29",
+          city: "hakone",
+          alsoIn: ["tokyo"],
+          title: "Hakone Shrine and onsen",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:00", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "13:00", type: "transit", title: "Train to Hakone", note: "Arrive around 2:30 PM." },
+            { time: "15:00", type: "stay", title: "Check into hotel", note: "Location: Fujiya Hotel" },
+            { time: "16:00", type: "sight", title: "Hakone Shrine", note: "Walk through Hakone Shrine and visit Torii Gate." },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" },
+            { time: "20:00", type: "stay", title: "Hot spring", note: "Location: Fujiya Hotel" }
+          ]
+        },
+        {
+          day: 7,
+          date: "2026-09-30",
+          city: "nagoya",
+          alsoIn: ["hakone"],
+          title: "Osu watches",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "12:00", type: "transit", title: "Train to Nagoya", note: "" },
+            { time: "14:00", type: "stay", title: "Check into hotel", note: "Location: TBD" },
+            { time: "15:00", type: "sight", title: "Watch shopping", note: "Location: Osu Shopping District" },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 8,
+          date: "2026-10-01",
+          city: "nagoya",
+          title: "Science museum",
+          items: [
+            { time: "10:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "13:00", type: "sight", title: "Science museum", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Planetarium", note: "Location: TBD. Tickets for 2:00–2:50 PM." },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 9,
+          date: "2026-10-02",
+          city: "nagoya",
+          title: "Toyota Museum and castle",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Toyota Museum", note: "About 25 minutes." },
+            { time: "12:00", type: "food", title: "Lunch", note: "Location: Toyota Museum" },
+            { time: "15:00", type: "transit", title: "Train back to Nagoya", note: "" },
+            { time: "16:00", type: "sight", title: "Visit Nagoya Castle", note: "" }
+          ]
+        },
+        {
+          day: 10,
+          date: "2026-10-03",
+          city: "nagoya",
+          title: "Suzuka Circuit",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Suzuka Circuit", note: "About 30 minutes." },
+            { time: "12:00", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "13:00", type: "sight", title: "Visit Suzuka Circuit", note: "" },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 11,
+          date: "2026-10-04",
+          city: "kyoto",
+          alsoIn: ["nagoya"],
+          title: "Kyoto, t-shirts for Erik",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Kyoto", note: "" },
+            { time: "12:00", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "12:30", type: "stay", title: "Check into hotel", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Souvenir shopping", note: "Three subtle anime t-shirts for Erik." },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 12,
+          date: "2026-10-05",
+          city: "kyoto",
+          title: "Arashiyama and Kuoe",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Arashiyama", note: "About 1 hour." },
+            { time: "12:00", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "12:30", type: "sight", title: "Arashiyama Bamboo Grove", note: "" },
+            { time: "15:00", type: "transit", title: "Train back to Kyoto", note: "Arrive around 4 PM." },
+            { time: "16:30", type: "sight", title: "Visit Kuoe Watch Store", note: "Open 4:30–5:30 PM." }
+          ]
+        },
+        {
+          day: 13,
+          date: "2026-10-06",
+          city: "osaka",
+          alsoIn: ["kyoto"],
+          title: "Arrive Osaka",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Osaka", note: "Arrive around 11:30 AM." },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: TBD" },
+            { time: "14:00", type: "sight", title: "Sightseeing around Osaka", note: "" },
+            { time: "15:30", type: "sight", title: "Souvenir shopping", note: "" },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 14,
+          date: "2026-10-07",
+          city: "osaka",
+          title: "Nara Park",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "11:00", type: "transit", title: "Train to Nara Park", note: "About 1 hour." },
+            { time: "12:30", type: "food", title: "Lunch", note: "Location: Nara" },
+            { time: "13:00", type: "sight", title: "Visit Nara Park", note: "" },
+            { time: "14:00", type: "sight", title: "Todai-ji Buddhist Temple", note: "Location: Nara" },
+            { time: "16:00", type: "sight", title: "Samurai Experience", note: "Location: Nara" },
+            { time: "17:00", type: "transit", title: "Train back to Osaka", note: "" },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 15,
+          date: "2026-10-08",
+          city: "osaka",
+          title: "Nintendo World",
+          items: [
+            { time: "09:00", type: "food", title: "Breakfast", note: "Location: TBD" },
+            { time: "10:00", type: "transit", title: "Leave for Nintendo World", note: "" },
+            { time: "12:00", type: "sight", title: "Visit Nintendo World", note: "" },
+            { time: "13:00", type: "food", title: "Lunch", note: "Location: Nintendo World" },
+            { time: "17:00", type: "transit", title: "Head back to Osaka", note: "" },
+            { time: "18:00", type: "food", title: "Dinner", note: "Location: TBD" }
+          ]
+        },
+        {
+          day: 16,
+          date: "2026-10-09",
+          city: "tokyo",
+          alsoIn: ["osaka"],
+          title: "Tokyo, then home",
+          items: [
+            { time: "07:30", type: "fly", title: "Flight to Tokyo", note: "" },
+            { time: "17:00", type: "fly", title: "Flight to the United States", note: "" }
+          ]
+        }
+      ]
+    };
+
+    /* ============================================================
+       APP
+       ============================================================ */
+    const TYPE_LABEL = {
+      arrive: "Arrive",
+      transit: "Transit",
+      sight: "See",
+      food: "Eat",
+      stay: "Stay",
+      fly: "Fly"
+    };
+
+    const ROUTE_ORDER = ["tokyo", "hakone", "nagoya", "kyoto", "osaka"];
+    const DEFAULT_VB = { x: -160, y: -40, w: 1080, h: 900 };
+    const AIR_CTRL = { x: 390, y: 590 };
+
+    const state = {
+      day: 1,
+      city: "tokyo",
+      panelOpen: false,
+      vb: { ...DEFAULT_VB }
+    };
+
+    const els = {
+      app: document.getElementById("app"),
+      svg: document.getElementById("map-svg"),
+      stage: document.getElementById("map-stage"),
+      panel: document.getElementById("panel"),
+      panelBody: document.getElementById("panel-body"),
+      sample: document.getElementById("sample-badge"),
+      travelers: document.getElementById("travelers"),
+      meta: document.getElementById("trip-meta"),
+      prev: document.getElementById("prev-day"),
+      next: document.getElementById("next-day"),
+      hudPrev: document.getElementById("hud-prev"),
+      hudNext: document.getElementById("hud-next"),
+      hudNow: document.getElementById("hud-now"),
+      hudKicker: document.getElementById("hud-kicker"),
+      hudCity: document.getElementById("hud-city"),
+      live: document.getElementById("live"),
+      routeLayer: document.getElementById("route-layer"),
+      pinLayer: document.getElementById("pin-layer"),
+      pawn: document.getElementById("pawn"),
+      vehicle: document.getElementById("vehicle")
+    };
+
+    let vbAnim = 0;
+    let pawnCity = "tokyo";
+    let travelRaf = 0;
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+    }
+
+    function cityById(id) {
+      return TRIP.cities.find((c) => c.id === id);
+    }
+
+    function dayByNum(n) {
+      return TRIP.days.find((d) => d.day === n);
+    }
+
+    function daysForCity(id) {
+      return TRIP.days.filter((d) => d.city === id || (d.alsoIn || []).includes(id));
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso + "T12:00:00");
+      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    }
+
+    function applyVB() {
+      const { x, y, w, h } = state.vb;
+      els.svg.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+    }
+
+    function ease(t) {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    function animateVB(next, ms = 520) {
+      const start = { ...state.vb };
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) {
+        state.vb = { ...next };
+        applyVB();
+        return;
+      }
+      const id = ++vbAnim;
+      const t0 = performance.now();
+      const tick = (now) => {
+        if (id !== vbAnim) return;
+        const p = ease(Math.min(1, (now - t0) / ms));
+        state.vb = {
+          x: start.x + (next.x - start.x) * p,
+          y: start.y + (next.y - start.y) * p,
+          w: start.w + (next.w - start.w) * p,
+          h: start.h + (next.h - start.h) * p
+        };
+        applyVB();
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function focusCity(id) {
+      const c = cityById(id);
+      if (!c) return;
+      const w = 210;
+      const h = 168;
+      animateVB({
+        x: c.mapX - w * 0.55,
+        y: c.mapY - h * 0.48,
+        w,
+        h
+      });
+    }
+
+    function resetView() {
+      animateVB({ ...DEFAULT_VB }, 420);
+    }
+
+    function clientToVB(clientX, clientY) {
+      const pt = els.svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const ctm = els.svg.getScreenCTM();
+      if (!ctm) return { x: 0, y: 0 };
+      return pt.matrixTransform(ctm.inverse());
+    }
+
+    function zoomAt(clientX, clientY, factor) {
+      const pt = clientToVB(clientX, clientY);
+      const nextW = Math.min(1400, Math.max(180, state.vb.w * factor));
+      const nextH = nextW * (state.vb.h / state.vb.w);
+      const rx = (pt.x - state.vb.x) / state.vb.w;
+      const ry = (pt.y - state.vb.y) / state.vb.h;
+      state.vb = {
+        w: nextW,
+        h: nextH,
+        x: pt.x - rx * nextW,
+        y: pt.y - ry * nextH
+      };
+      applyVB();
+    }
+
+    function quadPoint(p0, c, p1, t) {
+      const u = 1 - t;
+      return {
+        x: u * u * p0.x + 2 * u * t * c.x + t * t * p1.x,
+        y: u * u * p0.y + 2 * u * t * c.y + t * t * p1.y
+      };
+    }
+
+    function trainIdsBetween(fromId, toId) {
+      const a = ROUTE_ORDER.indexOf(fromId);
+      const b = ROUTE_ORDER.indexOf(toId);
+      if (a < 0 || b < 0 || a === b) return [fromId, toId];
+      const step = a < b ? 1 : -1;
+      const ids = [];
+      for (let i = a; i !== b; i += step) ids.push(ROUTE_ORDER[i]);
+      ids.push(ROUTE_ORDER[b]);
+      return ids;
+    }
+
+    function isFlightLeg(fromId, toId, fromDay, toDay) {
+      const pair = (fromId === "osaka" && toId === "tokyo") || (fromId === "tokyo" && toId === "osaka");
+      return pair && (fromDay === TRIP.days.length || toDay === TRIP.days.length);
+    }
+
+    function densify(pts, spacing) {
+      if (pts.length < 2) return pts.slice();
+      const out = [pts[0]];
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const d = Math.hypot(b.x - a.x, b.y - a.y);
+        const steps = Math.max(1, Math.round(d / spacing));
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        }
+      }
+      return out;
+    }
+
+    function buildTravel(fromId, toId, fromDay, toDay) {
+      if (!fromId || fromId === toId) return null;
+      if (isFlightLeg(fromId, toId, fromDay, toDay)) {
+        const osaka = cityById("osaka");
+        const tokyo = cityById("tokyo");
+        const p0 = { x: osaka.mapX, y: osaka.mapY };
+        const p1 = { x: tokyo.mapX, y: tokyo.mapY };
+        const n = 52;
+        const pts = [];
+        const reverse = fromId === "tokyo";
+        for (let i = 0; i <= n; i++) {
+          const t = reverse ? 1 - i / n : i / n;
+          pts.push(quadPoint(p0, AIR_CTRL, p1, t));
+        }
+        return { mode: "plane", pts };
+      }
+      return {
+        mode: "train",
+        pts: trainIdsBetween(fromId, toId).map((id) => {
+          const c = cityById(id);
+          return { x: c.mapX, y: c.mapY };
+        })
+      };
+    }
+
+    function setGuy(cityId, pop) {
+      const c = cityById(cityId);
+      if (!c || !els.pawn) return;
+      els.pawn.classList.remove("is-away", "is-pop");
+      els.pawn.setAttribute("transform", `translate(${c.mapX}, ${c.mapY - 10})`);
+      if (pop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        void els.pawn.getBoundingClientRect();
+        els.pawn.classList.add("is-pop");
+        window.setTimeout(() => els.pawn.classList.remove("is-pop"), 450);
+      }
+    }
+
+    function hideGuy() {
+      els.pawn.classList.remove("is-pop");
+      els.pawn.classList.add("is-away");
+    }
+
+    function setVehicle(x, y, deg, mode) {
+      els.vehicle.classList.add("is-on");
+      els.vehicle.classList.toggle("is-train", mode === "train");
+      els.vehicle.classList.toggle("is-plane", mode === "plane");
+      els.vehicle.setAttribute("transform", `translate(${x}, ${y}) rotate(${deg})`);
+    }
+
+    function hideVehicle() {
+      els.vehicle.classList.remove("is-on", "is-train", "is-plane");
+    }
+
+    function travelTo(fromId, toId, fromDay, toDay) {
+      const dest = cityById(toId);
+      if (!dest || !els.pawn) return;
+      const trip = buildTravel(fromId, toId, fromDay, toDay);
+      pawnCity = toId;
+      if (travelRaf) {
+        cancelAnimationFrame(travelRaf);
+        travelRaf = 0;
+      }
+      if (!trip || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        hideVehicle();
+        setGuy(toId, false);
+        return;
+      }
+      hideGuy();
+      const pts = densify(trip.pts, 3);
+      let dist = 0;
+      for (let i = 1; i < pts.length; i++) {
+        dist += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      }
+      const duration = Math.min(3600, Math.max(1100, dist * 13));
+      const t0 = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - t0) / duration);
+        const e = ease(t);
+        const f = e * (pts.length - 1);
+        const i = Math.min(pts.length - 2, Math.floor(f));
+        const frac = f - i;
+        const a = pts[i];
+        const b = pts[i + 1];
+        const x = a.x + (b.x - a.x) * frac;
+        const y = a.y + (b.y - a.y) * frac;
+        const deg = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        setVehicle(x, y, deg, trip.mode);
+        if (t < 1) travelRaf = requestAnimationFrame(tick);
+        else {
+          travelRaf = 0;
+          hideVehicle();
+          setGuy(toId, true);
+        }
+      };
+      travelRaf = requestAnimationFrame(tick);
+    }
+
+    function selectDay(n, opts = {}) {
+      const day = dayByNum(n);
+      if (!day) return;
+      const fromCity = pawnCity;
+      const fromDay = state.day;
+      state.day = day.day;
+      state.city = opts.city || day.city;
+      state.panelOpen = true;
+      render();
+      travelTo(fromCity, day.city, fromDay, day.day);
+    }
+
+    function selectCity(id) {
+      const primary = TRIP.days.filter((d) => d.city === id);
+      if (!primary.length) return;
+      const stay = primary.find((d) => d.day === state.day) || primary[0];
+      selectDay(stay.day, { city: id });
+    }
+
+    function setPanelOpen(open) {
+      state.panelOpen = open;
+      els.panel.classList.toggle("is-open", open);
+      els.app.classList.toggle("panel-open", open);
+    }
+
+    function activeRouteIndex() {
+      const day = dayByNum(state.day);
+      if (!day) return -1;
+      if (day.day === TRIP.days.length) return ROUTE_ORDER.length; // air leg
+      const idx = ROUTE_ORDER.indexOf(day.city);
+      return idx;
+    }
+
+    function renderRoute() {
+      const pts = ROUTE_ORDER.map((id) => cityById(id));
+      const land = pts.map((p, i) => `${i ? "L" : "M"}${p.mapX},${p.mapY}`).join(" ");
+      const osaka = cityById("osaka");
+      const tokyo = cityById("tokyo");
+      const air = `M${osaka.mapX},${osaka.mapY} Q ${AIR_CTRL.x} ${AIR_CTRL.y} ${tokyo.mapX},${tokyo.mapY}`;
+      const on = activeRouteIndex();
+      let segs = "";
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        const active = on > i;
+        segs += `<path class="route-seg${active ? " is-on" : ""}" d="M${a.mapX},${a.mapY} L${b.mapX},${b.mapY}" />`;
+      }
+      els.routeLayer.innerHTML = `
+        <path class="route-land" d="${land}" />
+        <path class="route-air" d="${air}" />
+        ${segs}
+      `;
+    }
+
+    function renderPins() {
+      els.pinLayer.innerHTML = TRIP.cities.map((c) => {
+        const selected = state.city === c.id ? " is-selected" : "";
+        const anchor = c.label.anchor || "start";
+        return `
+          <g class="pin${selected}" data-city="${c.id}" tabindex="0" role="button" aria-label="${esc(c.name)}" style="color:${c.color}">
+            <g transform="translate(${c.mapX},${c.mapY})">
+              <circle class="pin-hit" r="28" />
+              <g class="pin-mark">
+                <circle class="pin-glow" r="18" />
+                <circle class="pin-ring" r="11" />
+                <circle class="pin-core" r="7.5" fill="${c.color}" />
+              </g>
+              <text class="pin-name" x="${c.label.x}" y="${c.label.y}" text-anchor="${anchor}">${esc(c.name)}</text>
+            </g>
+          </g>`;
+      }).join("");
+    }
+
+    function renderHud() {
+      const day = dayByNum(state.day);
+      const city = cityById(day.city);
+      els.hudKicker.textContent = `Day ${day.day} of ${TRIP.days.length}`;
+      els.hudCity.textContent = city.name;
+      els.hudPrev.disabled = state.day <= 1;
+      els.hudNext.disabled = state.day >= TRIP.days.length;
+    }
+
+    function renderPanel() {
+      const day = dayByNum(state.day);
+      const city = cityById(state.city);
+      const cityDays = daysForCity(state.city);
+      const tabs = cityDays.map((d) => {
+        const on = d.day === state.day ? " is-active" : "";
+        return `<button type="button" class="${on}" data-day="${d.day}">Day ${d.day}</button>`;
+      }).join("");
+
+      const stops = day.items.map((item) => {
+        const link = item.link
+          ? `<a href="${esc(item.link)}" target="_blank" rel="noopener">Open link</a>`
+          : "";
+        return `
+          <li>
+            <time datetime="${esc(day.date)}T${esc(item.time)}">${esc(item.time)}</time>
+            <div>
+              <span class="stop-type">${esc(TYPE_LABEL[item.type] || item.type)}</span>
+              <h4>${esc(item.title)}</h4>
+              ${item.note ? `<p>${esc(item.note)}</p>` : ""}
+              ${link}
+            </div>
+          </li>`;
+      }).join("");
+
+      els.panelBody.innerHTML = `
+        <p class="eyebrow">Day ${day.day} of ${TRIP.days.length} · ${esc(formatDate(day.date))}</p>
+        <h2 class="panel-city-name">${esc(city.name)}</h2>
+        <p class="blurb">${esc(city.blurb)}</p>
+        <div class="city-days" role="tablist" aria-label="Days in ${esc(city.name)}">${tabs}</div>
+        <ol class="stops">${stops}</ol>
+      `;
+
+      els.prev.disabled = state.day <= 1;
+      els.next.disabled = state.day >= TRIP.days.length;
+      els.live.textContent = `Day ${day.day}, ${city.name}`;
+    }
+
+    function renderHeader() {
+      els.travelers.textContent = TRIP.travelers.join("  ·  ");
+      els.meta.textContent = `${TRIP.cities.length} cities  ·  ${TRIP.days.length} days`;
+      els.sample.hidden = !TRIP.synthetic;
+    }
+
+    function render() {
+      renderHeader();
+      renderHud();
+      renderRoute();
+      renderPins();
+      renderPanel();
+      setPanelOpen(state.panelOpen);
+    }
+
+    /* events */
+    els.panelBody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".city-days [data-day]");
+      if (!btn) return;
+      selectDay(Number(btn.dataset.day), { city: state.city });
+    });
+
+    els.pinLayer.addEventListener("keydown", (e) => {
+      const pin = e.target.closest(".pin");
+      if (!pin) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectCity(pin.dataset.city);
+      }
+    });
+
+    document.getElementById("panel-close").addEventListener("click", () => setPanelOpen(false));
+    document.getElementById("map-dim").addEventListener("click", () => setPanelOpen(false));
+    els.prev.addEventListener("click", () => selectDay(state.day - 1));
+    els.next.addEventListener("click", () => selectDay(state.day + 1));
+    els.hudPrev.addEventListener("click", () => selectDay(state.day - 1));
+    els.hudNext.addEventListener("click", () => selectDay(state.day + 1));
+    els.hudNow.addEventListener("click", () => {
+      state.panelOpen = true;
+      render();
+    });
+
+    document.getElementById("zoom-in").addEventListener("click", () => {
+      const r = els.svg.getBoundingClientRect();
+      zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.82);
+    });
+    document.getElementById("zoom-out").addEventListener("click", () => {
+      const r = els.svg.getBoundingClientRect();
+      zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.22);
+    });
+    document.getElementById("zoom-reset").addEventListener("click", resetView);
+
+    els.stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY > 0 ? 1.1 : 0.9);
+    }, { passive: false });
+
+    const drag = { on: false, moved: false, x: 0, y: 0, pin: null, suppressClick: false };
+    els.svg.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("button")) return;
+      drag.on = true;
+      drag.moved = false;
+      drag.suppressClick = false;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      drag.pin = e.target.closest(".pin");
+    });
+    els.svg.addEventListener("pointermove", (e) => {
+      if (!drag.on) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) > 10) {
+        drag.moved = true;
+        els.stage.classList.add("is-panning");
+        try { els.svg.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      if (!drag.moved) return;
+      const rect = els.svg.getBoundingClientRect();
+      state.vb.x -= dx * (state.vb.w / rect.width);
+      state.vb.y -= dy * (state.vb.h / rect.height);
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      applyVB();
+    });
+    function pinFromEvent(e) {
+      if (drag.pin) return drag.pin;
+      const node = document.elementFromPoint(e.clientX, e.clientY);
+      return node && node.closest ? node.closest(".pin") : null;
+    }
+    function endDrag(e) {
+      if (!drag.on) return;
+      const moved = drag.moved;
+      const pin = pinFromEvent(e);
+      drag.on = false;
+      drag.moved = false;
+      drag.pin = null;
+      drag.suppressClick = moved;
+      els.stage.classList.remove("is-panning");
+      if (!moved && pin) selectCity(pin.dataset.city);
+    }
+    els.svg.addEventListener("pointerup", endDrag);
+    els.svg.addEventListener("pointercancel", endDrag);
+    els.svg.addEventListener("click", (e) => {
+      if (drag.suppressClick) {
+        drag.suppressClick = false;
+        return;
+      }
+      const pin = e.target.closest(".pin");
+      if (pin) selectCity(pin.dataset.city);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.closest("input, textarea")) return;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        selectDay(state.day + 1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        selectDay(state.day - 1);
+      } else if (e.key === "Escape") {
+        setPanelOpen(false);
+      }
+    });
+
+    let swipe = { x: 0, y: 0 };
+    els.panel.addEventListener("touchstart", (e) => {
+      swipe.x = e.changedTouches[0].clientX;
+      swipe.y = e.changedTouches[0].clientY;
+    }, { passive: true });
+    els.panel.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - swipe.x;
+      const dy = e.changedTouches[0].clientY - swipe.y;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        if (dx < 0) selectDay(state.day + 1);
+        else selectDay(state.day - 1);
+      }
+    }, { passive: true });
+
+    render();
+    applyVB();
+    hideVehicle();
+    setGuy("tokyo", false);
+  </script>
+</body>
+</html>
