@@ -1394,7 +1394,7 @@
       const fromDay = state.day;
       state.day = day.day;
       state.city = opts.city || day.city;
-      state.panelOpen = true;
+      state.panelOpen = opts.openPanel ?? true;
       render();
       travelTo(fromCity, day.city, fromDay, day.day);
     }
@@ -1547,8 +1547,8 @@
     document.getElementById("map-dim").addEventListener("click", () => setPanelOpen(false));
     els.prev.addEventListener("click", () => selectDay(state.day - 1));
     els.next.addEventListener("click", () => selectDay(state.day + 1));
-    els.hudPrev.addEventListener("click", () => selectDay(state.day - 1));
-    els.hudNext.addEventListener("click", () => selectDay(state.day + 1));
+    els.hudPrev.addEventListener("click", () => selectDay(state.day - 1, { openPanel: state.panelOpen }));
+    els.hudNext.addEventListener("click", () => selectDay(state.day + 1, { openPanel: state.panelOpen }));
     els.hudNow.addEventListener("click", () => {
       state.panelOpen = true;
       render();
@@ -1700,10 +1700,10 @@
       if (e.target.closest("input, textarea")) return;
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        selectDay(state.day + 1);
+        selectDay(state.day + 1, { openPanel: state.panelOpen });
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        selectDay(state.day - 1);
+        selectDay(state.day - 1, { openPanel: state.panelOpen });
       } else if (e.key === "Escape") {
         setPanelOpen(false);
       }
